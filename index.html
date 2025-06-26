@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>إذاعة خزامى</title>
+  <style>
+    body { font-family: Arial, sans-serif; direction: rtl; background: #f9f9f9; padding: 20px; }
+    h1 { text-align: center; }
+    label, input, button, select { font-size: 1rem; margin: 5px 0; }
+    .form-section { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+    #chartContainer { width: 400px; height: 400px; margin: 20px auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    tr.duplicate { background-color: #ffe0e0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>إذاعة خزامى</h1>
+  <div class="form-section">
+    <label for="coordinator">مديرة التنسيق:</label>
+    <input type="text" id="coordinator" value="زينب الشهري" disabled><br>
+    <label for="employeeName">اسم الموظف:</label>
+    <input type="text" id="employeeName"><br>
+    <label for="wordFile">رفع ملف وورد:</label>
+    <input type="file" id="wordFile" accept=".doc,.docx"><br>
+    <button onclick="uploadAndAnalyze()">تحليل الملف</button>
+  </div>
+  <div id="chartContainer"><canvas id="resultChart"></canvas></div>
+  <table id="songsTable">
+    <thead><tr><th>اسم الفنان</th><th>اسم الأغنية</th><th>الوقت</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    async function uploadAndAnalyze() {
+      const file = document.getElementById('wordFile').files[0];
+      if (!file) return alert("يرجى اختيار ملف");
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/analyze", { method: "POST", body: formData });
+      const result = await response.json();
+      if (result.error) return alert("خطأ: " + result.error);
+      showChart(result.correct, result.incorrect);
+      showTable(result.rows, result.repeated_in_hour);
+    }
+    function showChart(correct, incorrect) {
+      const ctx = document.getElementById('resultChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['نسبة الصح', 'نسبة الخطأ'],
+          datasets: [{ data: [correct, incorrect], backgroundColor: ['#4CAF50', '#F44336'] }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'left' } } }
+      });
+    }
+    function showTable(rows, duplicates) {
+      const tbody = document.querySelector("#songsTable tbody");
+      tbody.innerHTML = "";
+      const repeated = new Set(duplicates.map(d => d.join("|")));
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        const key = `${row.artist}|${row.time}`;
+        if (repeated.has(key)) tr.classList.add("duplicate");
+        tr.innerHTML = `<td>${row.artist}</td><td>${row.song}</td><td>${row.time}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
